@@ -2,19 +2,17 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 import altair as alt
-from model import open_data, preprocess_data, split_data, load_model_and_predict
-
+from models.model import open_data, preprocess_data, split_data, load_model_and_predict
+from utils.utils import bar_chart, phik_data
 
 image = Image.open('data/image.png')
 
 st.set_page_config(
     layout="wide",
-    initial_sidebar_state="auto",
+    initial_sidebar_state="expanded",
     page_title="Promo Bank",
     page_icon=image
 )
-
-image = Image.open('data/image.png')
 
 st.title(
     """
@@ -25,62 +23,57 @@ st.title(
 
 st.image(image)
 
-"""
-Таблица 1: Исследование
-"""
 
-
-
-def bar_chart(source: pd.DataFrame,
-              feature: str,
-              color: str,
-              bin: alt.Bin = None,
-              x_title: str = None,
-              y_title: str = None) -> None:
-    """
-    Function draws and displays bar chart.
-
-    :param source: data to display
-    :param feature: feature to visualize
-    :param color: bars color
-    :param bin: binarize data params
-    :param x_title: x label title to display
-    :param y_title: y label title to display
-    """
-    chart = alt.Chart(source).transform_joinaggregate(
-        total='sum(count)',
-    ).transform_calculate(
-        percent="datum.count / datum.total"
-    ).mark_bar(color=color).encode(
-        alt.X(feature, bin=bin, axis=alt.Axis(labelAngle=0, title=x_title)),
-        alt.Y('sum(percent):Q', axis=alt.Axis(format='.0%', title=y_title))
-    ).properties(height=250)
-
-    st.altair_chart(chart, use_container_width=True)
-
-def plot_age(df):
+def plot_age(df: pd.DataFrame):
     st.subheader('Возраст')
     source = df.AGE.value_counts().reset_index()
-    bar_chart(source, 'AGE:Q', color='#83c9ff', bin=alt.Bin(maxbins=10))
+    bar_chart(source, 'AGE:Q', color='#83c9ff', bin=alt.Bin(maxbins=10), x_title='лет')
 
-def plot_postal_adress(df):
+
+def plot_postal_address(df: pd.DataFrame):
     st.subheader('Почтовый адрес')
     source = df.POSTAL_ADDRESS_PROVINCE.value_counts().reset_index()
-    bar_chart(source, 'POSTAL_ADDRESS_PROVINCE:N', color='#83c9ff', y_title='percent')
+    bar_chart(source, 'POSTAL_ADDRESS_PROVINCE:N', color='#83c9ff', x_title='адрес')
 
-def plot_education(df):
+
+def plot_education(df: pd.DataFrame):
     st.subheader('Образование')
     source = df.EDUCATION.value_counts().reset_index()
-    bar_chart(source, 'EDUCATION:N', color='#83c9ff', y_title='percent')
+    bar_chart(source, 'EDUCATION:N', color='#83c9ff', x_title='образование')
 
 
+def top_gen_industry(df: pd.DataFrame):
+    st.subheader('Отрасль работы')
+    source = df.GEN_INDUSTRY.value_counts().reset_index()
+    bar_chart(source, 'GEN_INDUSTRY:N', color='#83c9ff', x_title='отрасль')
 
 
+def personal_income(df: pd.DataFrame):
+    st.subheader('Персональный доход')
+    source = df.PERSONAL_INCOME.value_counts().reset_index()
+    bar_chart(source, 'PERSONAL_INCOME:Q', color='#83c9ff', bin=alt.Bin(maxbins=25), x_title='руб.')
 
 
-"""
-Таблица 2: Предсказание
-"""
+def plot_phik_matrix():
+    st.subheader('Корреляционная матрица признаков')
+    source = phik_data(df)
+    plot = alt.Chart(source).mark_rect(strokeOpacity=0).encode(
+        x=alt.X('variable:O', axis=alt.Axis(grid=False, title=None, labelLimit=360)),
+        y=alt.Y('variable2:O', axis=alt.Axis(grid=False, title=None, labelLimit=360)),
+        color=alt.Color('correlation:Q', scale=alt.Scale(scheme='blues'))
+    ).properties(
+        height=760
+    )
+    text = plot.mark_text(fontSize=16).encode(
+        text='correlation_label',
+        color=alt.condition(
+            ((alt.datum.correlation > 0.75) | (alt.datum.correlation < 0.25)),
+            alt.value('white'),
+            alt.value('black')
+        )
+    )
+    st.altair_chart(plot + text, use_container_width=True)
+
 
 def input_features():
     age = st.slider("Возраст", min_value=1, max_value=80, value=30,
@@ -142,8 +135,6 @@ def input_features():
 
     work_time = st.number_input("Время работы на текущем месте (в месяцах)", 12)
 
-# st.divider()
-
     personal_income = st.number_input("Персональный доход", 40000)
 
     closed_fl = st.selectbox("Текущий статус кредита", ("Закрыт", "Не закрыт"))
@@ -174,6 +165,7 @@ def write_prediction(prediction, prediction_probas):
     st.write("## Вероятность предсказания")
     st.write(prediction_probas)
 
+
 def compute_tab1():
     st.write("""
             ### Введите данные клиента:
@@ -181,16 +173,18 @@ def compute_tab1():
              )
 
 
-def write_user_data(df):
+def write_user_data(df: pd.DataFrame):
     st.write("## Введенные данные")
     st.write(df)
 
-def write_prediction(prediction, prediction_probas):
+
+def write_pred(prediction, prediction_probas):
     st.write("## Предсказание")
     st.write(prediction)
 
     st.write("## Вероятность предсказания")
     st.write(prediction_probas)
+
 
 def process_side_bar_inputs():
     train_df = open_data()
@@ -202,15 +196,31 @@ def process_side_bar_inputs():
     write_user_data(user_X_df)
 
     prediction, prediction_probas = load_model_and_predict(user_X_df)
-    write_prediction(prediction, prediction_probas)
+    write_pred(prediction, prediction_probas)
 
 
-tab1, tab2, tab3 = st.tabs([
-    "Исследовать", "Предсказать", "Оценить"
+tab1, tab2 = st.tabs([
+    "Исследовать", "Предсказать"
 ])
 
 
 if __name__ == "__main__":
+    with tab1:
+        row1, row2 = st.columns([1, 1])
+        with row1:
+            df = open_data()
+            plot_age(df)
+            st.divider()
+            plot_postal_address(df)
+            st.divider()
+            plot_education(df)
+            st.divider()
+            top_gen_industry(df)
+            st.divider()
+            personal_income(df)
+        with row2:
+            plot_phik_matrix()
+
     with tab2:
         row1, row2 = st.columns([1, 3])
         with row1:
@@ -218,9 +228,3 @@ if __name__ == "__main__":
             user_input_df = input_features()
         with row2:
             process_side_bar_inputs()
-
-    with tab1:
-        df = open_data()
-        plot_age(df)
-        plot_postal_adress(df)
-        plot_education(df)
