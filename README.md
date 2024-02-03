@@ -29,8 +29,16 @@ $ python -m venv venv
 $ source venv/bin/activate
 $ pip install -r requirements.txt
 $ streamlit run app.py
-Открыть http://localhost:8501 для просмотра приложения.
 ```
+Открыть [http://localhost:8501](http://localhost:8501) для просмотра приложения.
+
+### Docker
+
+```
+$ docker build . -t streamlit-app:latest
+$ docker run -it --rm -p '8501:8501' streamlit-app
+```
+Открыть [http://localhost:8501](http://localhost:8501) для просмотра приложения.
 
 ## (3) Данные
 
