@@ -26,33 +26,63 @@ st.title(
 st.image(image)
 
 
+if "TARGET_DEMO" not in st.session_state:
+    st.session_state["TARGET_DEMO"] = False
+
+
+def from_callback(suffix: str) -> None:
+    st.session_state[f"TARGET_{suffix}"] = not st.session_state[f"TARGET_{suffix}"]
+
+
+def switch_target(df: pd.DataFrame, target: int):
+    return df[df["TARGET"] == target]
+
+
 def plot_age(df: pd.DataFrame):
     st.subheader("Возраст")
-    source = df.AGE.value_counts().reset_index()
+    source = (
+        switch_target(df, st.session_state.TARGET_DEMO).AGE.value_counts().reset_index()
+    )
     bar_chart(source, "AGE:Q", color="#83c9ff", bin=alt.Bin(maxbins=10), x_title="лет")
 
 
 def plot_postal_address(df: pd.DataFrame):
     st.subheader("Почтовый адрес")
-    source = df.POSTAL_ADDRESS_PROVINCE.value_counts().reset_index()
+    source = (
+        switch_target(df, st.session_state.TARGET_DEMO)
+        .POSTAL_ADDRESS_PROVINCE.value_counts()
+        .reset_index()
+    )
     bar_chart(source, "POSTAL_ADDRESS_PROVINCE:N", color="#83c9ff", x_title="адрес")
 
 
 def plot_education(df: pd.DataFrame):
     st.subheader("Образование")
-    source = df.EDUCATION.value_counts().reset_index()
+    source = (
+        switch_target(df, st.session_state.TARGET_DEMO)
+        .EDUCATION.value_counts()
+        .reset_index()
+    )
     bar_chart(source, "EDUCATION:N", color="#83c9ff", x_title="образование")
 
 
 def top_gen_industry(df: pd.DataFrame):
     st.subheader("Отрасль работы")
-    source = df.GEN_INDUSTRY.value_counts().reset_index()
+    source = (
+        switch_target(df, st.session_state.TARGET_DEMO)
+        .GEN_INDUSTRY.value_counts()
+        .reset_index()
+    )
     bar_chart(source, "GEN_INDUSTRY:N", color="#83c9ff", x_title="отрасль")
 
 
 def personal_income(df: pd.DataFrame):
     st.subheader("Персональный доход")
-    source = df.PERSONAL_INCOME.value_counts().reset_index()
+    source = (
+        switch_target(df, st.session_state.TARGET_DEMO)
+        .PERSONAL_INCOME.value_counts()
+        .reset_index()
+    )
     bar_chart(
         source,
         "PERSONAL_INCOME:Q",
@@ -64,7 +94,7 @@ def personal_income(df: pd.DataFrame):
 
 def plot_phik_matrix():
     st.subheader("Корреляционная матрица признаков")
-    source = phik_data(df)
+    source = phik_data(switch_target(df, st.session_state.TARGET_DEMO))
     plot = (
         alt.Chart(source)
         .mark_rect(strokeOpacity=0)
@@ -305,6 +335,12 @@ if __name__ == "__main__":
     with tab1:
         row1, row2 = st.columns([1, 1])
         with row1:
+            st.toggle(
+                "Окликнувшиеся клиенты на промо",
+                key="target_demo",
+                on_change=from_callback,
+                kwargs={"suffix": "DEMO"},
+            )
             df = open_data()
             plot_age(df)
             st.divider()
